@@ -1,6 +1,6 @@
 {
   "name": "@blueharford/scrypted-privacy-manager",
-  "version": "0.0.6-beta",
+  "version": "0.0.7-beta",
   "description": "Scrypted plugin for granular camera privacy controls with scheduling, profiles, and Home Assistant integration",
   "author": "blueharford",
   "license": "Apache-2.0",
@@ -13,16 +13,12 @@
     "home-assistant",
     "nvr"
   ],
-  "main": "src/main.ts",
   "scrypted": {
     "name": "Privacy Manager",
     "type": "API",
     "interfaces": [
       "MixinProvider",
-      "DeviceProvider",
-      "DeviceCreator",
-      "Settings",
-      "HttpRequestHandler"
+      "Settings"
     ]
   },
   "scripts": {
@@ -32,9 +28,6 @@
     "prepublishOnly": "scrypted-changelog",
     "scrypted-vscode-launch": "scrypted-deploy-debug",
     "scrypted-deploy-debug": "scrypted-deploy-debug"
-  },
-  "dependencies": {
-    "@scrypted/sdk": "^0.5.29"
   },
   "devDependencies": {
     "@scrypted/sdk": "^0.5.29",

@@ -1,6 +1,11 @@
 <details>
 <summary>Changelog</summary>
 
+### 0.0.6-beta
+
+test: minimal plugin for install debugging
+
+
 ### 0.0.5-beta
 
 fix: change plugin type to API and add null safety
