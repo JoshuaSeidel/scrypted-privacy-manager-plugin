@@ -1,9 +1,8 @@
 import sdk, {
   Camera,
   MediaObject,
-  MotionSensor,
-  ObjectDetectionSession,
-  ObjectsDetected,
+  MixinDeviceBase,
+  MixinDeviceOptions,
   RequestMediaStreamOptions,
   RequestPictureOptions,
   ResponseMediaStreamOptions,
@@ -14,7 +13,6 @@ import sdk, {
   SettingValue,
   VideoCamera,
 } from '@scrypted/sdk';
-import { SettingsMixinDeviceBase, SettingsMixinDeviceOptions } from '@scrypted/sdk/settings-mixin';
 import {
   CameraPrivacyConfig,
   PrivacySettings,
@@ -28,25 +26,26 @@ import {
 import { safeJsonParse, describeSettings, getDaysForScheduleType } from './utils';
 import type { PrivacyManagerPlugin } from './main';
 
+const { deviceManager } = sdk;
+
 /**
  * Combined type for camera devices we support
  */
-type SupportedDevice = VideoCamera & Camera & MotionSensor & Settings;
+type SupportedDevice = VideoCamera & Camera & Settings;
 
 /**
  * Privacy Mixin - wraps a camera device to add privacy controls
  */
 export class PrivacyMixin
-  extends SettingsMixinDeviceBase<SupportedDevice>
+  extends MixinDeviceBase<SupportedDevice>
   implements VideoCamera, Camera, Settings
 {
   private plugin: PrivacyManagerPlugin;
   private config: CameraPrivacyConfig;
   private effectiveSettings: PrivacySettings;
-  private originalMotionDetected: boolean | undefined;
 
   constructor(
-    options: SettingsMixinDeviceOptions<SupportedDevice>,
+    options: MixinDeviceOptions<SupportedDevice>,
     plugin: PrivacyManagerPlugin
   ) {
     super(options);
@@ -62,8 +61,8 @@ export class PrivacyMixin
       `[Privacy] Initialized mixin for ${this.name}: ${describeSettings(this.effectiveSettings)}`
     );
 
-    // Register with schedule manager
-    if (this.config.schedule.enabled) {
+    // Register with schedule manager if available
+    if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
       this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
     }
   }
@@ -73,7 +72,7 @@ export class PrivacyMixin
    */
   private loadConfig(): CameraPrivacyConfig {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    const stored = this.storage.getItem(key);
+    const stored = this.storage?.getItem(key);
 
     const defaultConfig: CameraPrivacyConfig = {
       enabled: true,
@@ -90,7 +89,7 @@ export class PrivacyMixin
    */
   private saveConfig(): void {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    this.storage.setItem(key, JSON.stringify(this.config));
+    this.storage?.setItem(key, JSON.stringify(this.config));
   }
 
   /**
@@ -141,7 +140,7 @@ export class PrivacyMixin
       );
 
       // Notify plugin of change for audit logging and webhooks
-      this.plugin.onCameraSettingsChanged(
+      this.plugin?.onCameraSettingsChanged?.(
         this.id,
         this.name,
         previous,
@@ -207,27 +206,44 @@ export class PrivacyMixin
 
   // ============ Settings Interface ============
 
-  async getMixinSettings(): Promise<Setting[]> {
-    const scheduleInfo = this.plugin.scheduleManager.getScheduleInfo(this.id);
-    const activeProfile = this.plugin.getActiveProfileForCamera(this.id);
-    const isPanicMode = this.plugin.isPanicModeActive();
+  async getSettings(): Promise<Setting[]> {
+    // Get base device settings first
+    const baseSettings: Setting[] = [];
+    if (this.mixinDeviceInterfaces.includes(ScryptedInterface.Settings)) {
+      try {
+        const deviceSettings = await this.mixinDevice.getSettings();
+        if (deviceSettings) {
+          baseSettings.push(...deviceSettings);
+        }
+      } catch (e) {
+        this.console.error('Failed to get device settings:', e);
+      }
+    }
+
+    const scheduleInfo = this.plugin?.scheduleManager?.getScheduleInfo(this.id) ?? {
+      isActive: false,
+      nextChange: null,
+      description: 'Not configured',
+    };
+    const activeProfile = this.plugin?.getActiveProfileForCamera?.(this.id);
+    const isPanicMode = this.plugin?.isPanicModeActive?.() ?? false;
 
     // Build status description
     let statusDescription = '';
     if (isPanicMode) {
-      statusDescription = '⚠️ PANIC MODE ACTIVE - All cameras are in full privacy mode';
+      statusDescription = 'PANIC MODE ACTIVE - All cameras are in full privacy mode';
     } else if (activeProfile) {
-      statusDescription = `📋 Profile "${activeProfile.name}" is active`;
+      statusDescription = `Profile "${activeProfile.name}" is active`;
     } else if (scheduleInfo.isActive) {
-      statusDescription = `⏰ Schedule is active: ${scheduleInfo.description}`;
+      statusDescription = `Schedule is active: ${scheduleInfo.description}`;
     } else {
       statusDescription = describeSettings(this.effectiveSettings);
     }
 
-    const settings: Setting[] = [
+    const privacySettings: Setting[] = [
       // Status display
       {
-        key: 'privacyStatus',
+        key: 'privacy:status',
         title: 'Current Status',
         description: statusDescription,
         type: 'string',
@@ -238,7 +254,7 @@ export class PrivacyMixin
 
       // Master enable switch
       {
-        key: 'privacyEnabled',
+        key: 'privacy:enabled',
         title: 'Enable Privacy Controls',
         description: 'Enable privacy controls for this camera',
         type: 'boolean',
@@ -248,7 +264,7 @@ export class PrivacyMixin
 
       // Individual controls
       {
-        key: 'blockRecording',
+        key: 'privacy:blockRecording',
         title: 'Block Recording',
         description: 'Prevent this camera from recording video',
         type: 'boolean',
@@ -256,7 +272,7 @@ export class PrivacyMixin
         group: 'Privacy Controls',
       },
       {
-        key: 'blockEvents',
+        key: 'privacy:blockEvents',
         title: 'Block Events',
         description: 'Suppress motion and detection events',
         type: 'boolean',
@@ -264,7 +280,7 @@ export class PrivacyMixin
         group: 'Privacy Controls',
       },
       {
-        key: 'blockStreaming',
+        key: 'privacy:blockStreaming',
         title: 'Block Streaming',
         description: 'Block live video streaming and snapshots',
         type: 'boolean',
@@ -272,7 +288,7 @@ export class PrivacyMixin
         group: 'Privacy Controls',
       },
       {
-        key: 'blockDetection',
+        key: 'privacy:blockDetection',
         title: 'Block Detection',
         description: 'Disable object detection processing',
         type: 'boolean',
@@ -280,7 +296,7 @@ export class PrivacyMixin
         group: 'Privacy Controls',
       },
       {
-        key: 'blockMotionAlerts',
+        key: 'privacy:blockMotionAlerts',
         title: 'Block Motion Alerts',
         description: 'Suppress motion detection alerts',
         type: 'boolean',
@@ -290,77 +306,82 @@ export class PrivacyMixin
 
       // Schedule settings
       {
-        key: 'scheduleEnabled',
+        key: 'privacy:scheduleEnabled',
         title: 'Enable Schedule',
         description: 'Automatically apply privacy settings on a schedule',
         type: 'boolean',
         value: this.config.schedule.enabled,
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       },
       {
-        key: 'scheduleType',
+        key: 'privacy:scheduleType',
         title: 'Schedule Type',
         description: 'When to apply scheduled privacy settings',
         type: 'string',
         choices: ['daily', 'weekdays', 'weekends', 'custom'],
         value: this.config.schedule.type,
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       },
       {
-        key: 'scheduleStartTime',
+        key: 'privacy:scheduleStartTime',
         title: 'Privacy Start Time',
         description: 'Time when privacy mode activates (HH:MM)',
         type: 'string',
         placeholder: '08:00',
         value: this.config.schedule.startTime,
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       },
       {
-        key: 'scheduleEndTime',
+        key: 'privacy:scheduleEndTime',
         title: 'Privacy End Time',
         description: 'Time when privacy mode deactivates (HH:MM)',
         type: 'string',
         placeholder: '22:00',
         value: this.config.schedule.endTime,
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       },
     ];
 
     // Add custom days setting if type is custom
     if (this.config.schedule.type === 'custom') {
-      settings.push({
-        key: 'scheduleDays',
+      privacySettings.push({
+        key: 'privacy:scheduleDays',
         title: 'Schedule Days',
         description: 'Days when schedule is active (0=Sun, 6=Sat)',
         type: 'string',
         value: this.config.schedule.days.join(','),
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       });
     }
 
     // Add schedule info
-    if (this.config.schedule.enabled) {
-      settings.push({
-        key: 'scheduleInfo',
+    if (this.config.schedule.enabled && scheduleInfo.nextChange) {
+      privacySettings.push({
+        key: 'privacy:scheduleInfo',
         title: 'Schedule Status',
-        description: scheduleInfo.nextChange
-          ? `Next change: ${scheduleInfo.nextChange.toLocaleString()}`
-          : 'No upcoming changes',
+        description: `Next change: ${scheduleInfo.nextChange.toLocaleString()}`,
         type: 'string',
         readonly: true,
         value: '',
-        group: 'Schedule',
+        group: 'Privacy Schedule',
       });
     }
 
-    return settings;
+    return [...baseSettings, ...privacySettings];
   }
 
-  async putMixinSetting(key: string, value: SettingValue): Promise<void> {
+  async putSetting(key: string, value: SettingValue): Promise<void> {
+    // Check if this is a privacy setting
+    if (!key.startsWith('privacy:')) {
+      // Pass through to underlying device
+      return this.mixinDevice.putSetting(key, value);
+    }
+
+    const privacyKey = key.substring('privacy:'.length);
     const previousSettings = { ...this.config.manualSettings };
 
-    switch (key) {
-      case 'privacyEnabled':
+    switch (privacyKey) {
+      case 'enabled':
         this.config.enabled = value === true || value === 'true';
         break;
 
@@ -386,9 +407,9 @@ export class PrivacyMixin
 
       case 'scheduleEnabled':
         this.config.schedule.enabled = value === true || value === 'true';
-        if (this.config.schedule.enabled) {
+        if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
           this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
-        } else {
+        } else if (this.plugin?.scheduleManager) {
           this.plugin.scheduleManager.removeSchedule(this.id);
         }
         break;
@@ -398,7 +419,7 @@ export class PrivacyMixin
         if (this.config.schedule.type !== 'custom') {
           this.config.schedule.days = getDaysForScheduleType(this.config.schedule.type);
         }
-        if (this.config.schedule.enabled) {
+        if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
           this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
         }
         break;
@@ -406,7 +427,7 @@ export class PrivacyMixin
       case 'scheduleStartTime':
         if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
           this.config.schedule.startTime = value;
-          if (this.config.schedule.enabled) {
+          if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
             this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
           }
         }
@@ -415,7 +436,7 @@ export class PrivacyMixin
       case 'scheduleEndTime':
         if (typeof value === 'string' && /^\d{2}:\d{2}$/.test(value)) {
           this.config.schedule.endTime = value;
-          if (this.config.schedule.enabled) {
+          if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
             this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
           }
         }
@@ -427,7 +448,7 @@ export class PrivacyMixin
             .map(d => parseInt(d.trim(), 10))
             .filter(d => d >= 0 && d <= 6) as DayOfWeek[];
           this.config.schedule.days = days;
-          if (this.config.schedule.enabled) {
+          if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
             this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
           }
         }
@@ -442,19 +463,22 @@ export class PrivacyMixin
 
     // Log manual change if privacy settings changed
     if (JSON.stringify(previousSettings) !== JSON.stringify(this.config.manualSettings)) {
-      this.plugin.auditLogger.logManualChange(
+      this.plugin?.auditLogger?.logManualChange(
         this.id,
         this.name,
         previousSettings,
         this.config.manualSettings
       );
     }
+
+    // Notify settings changed
+    deviceManager.onMixinEvent(this.id, this, ScryptedInterface.Settings, undefined);
   }
 
   // ============ Lifecycle ============
 
   async release(): Promise<void> {
-    this.plugin.scheduleManager.removeSchedule(this.id);
+    this.plugin?.scheduleManager?.removeSchedule(this.id);
     this.console.log(`[Privacy] Released mixin for ${this.name}`);
   }
 }

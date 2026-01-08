@@ -5,6 +5,7 @@ import sdk, {
   HttpRequest,
   HttpRequestHandler,
   HttpResponse,
+  MixinDeviceOptions,
   MixinProvider,
   ScryptedDeviceBase,
   ScryptedDeviceType,
@@ -15,8 +16,6 @@ import sdk, {
   SettingValue,
   WritableDeviceState,
 } from '@scrypted/sdk';
-import { StorageSettings } from '@scrypted/sdk/storage-settings';
-import { SettingsMixinDeviceOptions } from '@scrypted/sdk/settings-mixin';
 
 import {
   PluginSettings,
@@ -217,13 +216,11 @@ export class PrivacyManagerPlugin
     mixinDeviceInterfaces: ScryptedInterface[],
     mixinDeviceState: WritableDeviceState
   ): Promise<any> {
-    const options: SettingsMixinDeviceOptions<any> = {
+    const options: MixinDeviceOptions<any> = {
       mixinDevice,
       mixinDeviceInterfaces,
       mixinDeviceState,
       mixinProviderNativeId: this.nativeId,
-      group: 'Privacy Controls',
-      groupKey: 'privacy',
     };
 
     const mixin = new PrivacyMixin(options, this);
