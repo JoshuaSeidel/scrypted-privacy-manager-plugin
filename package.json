@@ -1,0 +1,51 @@
+{
+  "name": "@blueharford/scrypted-privacy-manager",
+  "version": "0.0.1-beta",
+  "description": "Scrypted plugin for granular camera privacy controls with scheduling, profiles, and Home Assistant integration",
+  "author": "blueharford",
+  "license": "Apache-2.0",
+  "keywords": [
+    "scrypted",
+    "privacy",
+    "camera",
+    "recording",
+    "schedule",
+    "home-assistant",
+    "nvr"
+  ],
+  "main": "src/main.ts",
+  "scrypted": {
+    "name": "Privacy Manager",
+    "type": "Mixin",
+    "interfaces": [
+      "DeviceProvider",
+      "MixinProvider",
+      "Settings",
+      "HttpRequestHandler"
+    ]
+  },
+  "scripts": {
+    "scrypted-setup-project": "scrypted-setup-project",
+    "prescrypted-setup-project": "scrypted-package-json",
+    "build": "scrypted-webpack",
+    "prepublishOnly": "scrypted-changelog",
+    "scrypted-vscode-launch": "scrypted-deploy-debug",
+    "scrypted-deploy-debug": "scrypted-deploy-debug"
+  },
+  "dependencies": {
+    "@scrypted/sdk": "^0.5.29"
+  },
+  "devDependencies": {
+    "@scrypted/sdk": "^0.5.29",
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JoshuaSeidel/scrypted-privacy-manager-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JoshuaSeidel/scrypted-privacy-manager-plugin/issues"
+  },
+  "homepage": "https://github.com/JoshuaSeidel/scrypted-privacy-manager-plugin#readme"
+}

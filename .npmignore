@@ -1,0 +1,19 @@
+# Source files (published as compiled)
+src/
+
+# Config files
+tsconfig.json
+.gitignore
+.vscode/
+.idea/
+
+# Development
+*.log
+.DS_Store
+Thumbs.db
+
+# Tests
+test/
+__tests__/
+*.test.ts
+*.spec.ts
