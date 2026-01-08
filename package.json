@@ -1,9 +1,10 @@
 {
   "name": "@blueharford/scrypted-privacy-manager",
-  "version": "0.0.7-beta",
+  "version": "0.0.8-beta",
   "description": "Scrypted plugin for granular camera privacy controls with scheduling, profiles, and Home Assistant integration",
   "author": "blueharford",
   "license": "Apache-2.0",
+  "main": "src/main.ts",
   "keywords": [
     "scrypted",
     "privacy",
@@ -19,18 +20,27 @@
     "interfaces": [
       "MixinProvider",
       "Settings"
-    ]
+    ],
+    "realfs": true
   },
   "scripts": {
-    "scrypted-setup-project": "scrypted-setup-project",
-    "prescrypted-setup-project": "scrypted-package-json",
-    "build": "scrypted-webpack",
-    "prepublishOnly": "scrypted-changelog",
-    "scrypted-vscode-launch": "scrypted-deploy-debug",
-    "scrypted-deploy-debug": "scrypted-deploy-debug"
+    "scrypted-setup-project": "node node_modules/@scrypted/sdk/bin/scrypted-setup-project.js",
+    "prescrypted-setup-project": "node node_modules/@scrypted/sdk/bin/scrypted-package-json.js",
+    "build": "node node_modules/@scrypted/sdk/bin/scrypted-webpack.js",
+    "prepublishOnly": "NODE_ENV=production node node_modules/@scrypted/sdk/bin/scrypted-webpack.js",
+    "prescrypted-vscode-launch": "node node_modules/@scrypted/sdk/bin/scrypted-webpack.js",
+    "scrypted-vscode-launch": "node node_modules/@scrypted/sdk/bin/scrypted-deploy-debug.js",
+    "scrypted-deploy-debug": "node node_modules/@scrypted/sdk/bin/scrypted-deploy-debug.js",
+    "scrypted-debug": "node node_modules/@scrypted/sdk/bin/scrypted-debug.js",
+    "scrypted-deploy": "node node_modules/@scrypted/sdk/bin/scrypted-deploy.js",
+    "scrypted-readme": "node node_modules/@scrypted/sdk/bin/scrypted-readme.js",
+    "scrypted-package-json": "node node_modules/@scrypted/sdk/bin/scrypted-package-json.js"
+  },
+  "dependencies": {
+    "@scrypted/sdk": "^0.5.29"
   },
   "devDependencies": {
-    "@scrypted/sdk": "^0.5.29",
+    "@scrypted/common": "^1.0.0",
     "@types/node": "^20.11.0",
     "typescript": "^5.3.0"
   },

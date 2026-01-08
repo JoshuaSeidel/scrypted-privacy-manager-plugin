@@ -1,6 +1,11 @@
 <details>
 <summary>Changelog</summary>
 
+### 0.0.7-beta
+
+fix: remove main field, fix dependencies
+
+
 ### 0.0.6-beta
 
 test: minimal plugin for install debugging
