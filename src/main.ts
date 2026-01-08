@@ -58,13 +58,14 @@ export class PrivacyManagerPlugin
   extends ScryptedDeviceBase
   implements DeviceProvider, MixinProvider, Settings, DeviceCreator, HttpRequestHandler
 {
-  // Managers
-  public auditLogger: AuditLogger;
-  public scheduleManager: ScheduleManager;
-  public webhookManager: WebhookManager;
+  // Managers (initialized lazily)
+  public auditLogger!: AuditLogger;
+  public scheduleManager!: ScheduleManager;
+  public webhookManager!: WebhookManager;
 
   // Storage
-  private pluginSettings: PluginSettings;
+  private pluginSettings: PluginSettings = { ...DEFAULT_PLUGIN_SETTINGS };
+  private initialized = false;
 
   // Device tracking
   private privacyMixins: Map<string, PrivacyMixin> = new Map();
@@ -74,26 +75,41 @@ export class PrivacyManagerPlugin
   constructor(nativeId?: ScryptedNativeId) {
     super(nativeId);
 
-    // Load plugin settings
-    this.pluginSettings = this.loadPluginSettings();
+    // Initialize with defaults first
+    this.pluginSettings = { ...DEFAULT_PLUGIN_SETTINGS };
 
-    // Initialize managers
-    this.auditLogger = new AuditLogger(
-      this.storage,
-      this.console,
-      this.pluginSettings.auditLogRetentionDays
-    );
+    // Deferred initialization to ensure storage is ready
+    setImmediate(() => this.initializePlugin());
+  }
 
-    this.scheduleManager = new ScheduleManager(this.console);
-    this.webhookManager = new WebhookManager(this.console);
+  /**
+   * Initialize plugin after constructor completes
+   */
+  private initializePlugin(): void {
+    try {
+      // Load plugin settings from storage
+      this.pluginSettings = this.loadPluginSettings();
 
-    // Configure webhook if set
-    if (this.pluginSettings.webhook) {
-      this.webhookManager.setConfig(this.pluginSettings.webhook);
+      // Initialize managers
+      this.auditLogger = new AuditLogger(
+        this.storage,
+        this.console,
+        this.pluginSettings.auditLogRetentionDays
+      );
+
+      this.scheduleManager = new ScheduleManager(this.console);
+      this.webhookManager = new WebhookManager(this.console);
+
+      // Configure webhook if set
+      if (this.pluginSettings.webhook) {
+        this.webhookManager.setConfig(this.pluginSettings.webhook);
+      }
+
+      // Continue with async initialization
+      this.initialize().catch(e => this.console.error('Initialize error:', e));
+    } catch (e) {
+      this.console?.error?.('Plugin initialization error:', e);
     }
-
-    // Deferred initialization
-    process.nextTick(() => this.initialize());
   }
 
   /**
@@ -106,16 +122,21 @@ export class PrivacyManagerPlugin
     await this.discoverDevices();
 
     // Start the schedule manager
-    this.scheduleManager.start();
+    if (this.scheduleManager) {
+      this.scheduleManager.start();
 
-    // Register for schedule changes
-    this.scheduleManager.onScheduleChange((cameraId, settings, reason) => {
-      this.onScheduleTriggered(cameraId, settings, reason);
-    });
+      // Register for schedule changes
+      this.scheduleManager.onScheduleChange((cameraId, settings, reason) => {
+        this.onScheduleTriggered(cameraId, settings, reason);
+      });
+    }
 
     // Apply retention policy to audit log
-    this.auditLogger.applyRetention();
+    if (this.auditLogger) {
+      this.auditLogger.applyRetention();
+    }
 
+    this.initialized = true;
     this.console.log('[Privacy Manager] Initialized successfully');
   }
 
@@ -553,7 +574,7 @@ export class PrivacyManagerPlugin
    * Check if panic mode is active
    */
   isPanicModeActive(): boolean {
-    return this.pluginSettings.panicMode;
+    return this.pluginSettings?.panicMode ?? false;
   }
 
   /**
@@ -593,7 +614,8 @@ export class PrivacyManagerPlugin
    * Get active profile for a camera
    */
   getActiveProfileForCamera(cameraId: string): PrivacyProfile | null {
-    for (const profile of this.pluginSettings.profiles) {
+    const profiles = this.pluginSettings?.profiles ?? [];
+    for (const profile of profiles) {
       if (profile.active && profile.cameraIds.includes(cameraId)) {
         return profile;
       }
@@ -605,7 +627,8 @@ export class PrivacyManagerPlugin
    * Deactivate all profiles
    */
   async deactivateAllProfiles(): Promise<void> {
-    for (const profile of this.pluginSettings.profiles) {
+    const profiles = this.pluginSettings?.profiles ?? [];
+    for (const profile of profiles) {
       if (profile.active) {
         profile.active = false;
 

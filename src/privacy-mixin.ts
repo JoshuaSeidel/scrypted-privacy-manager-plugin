@@ -98,23 +98,26 @@ export class PrivacyMixin
    */
   private calculateEffectiveSettings(): PrivacySettings {
     // Panic mode overrides everything
-    if (this.plugin.isPanicModeActive()) {
+    if (this.plugin?.isPanicModeActive?.()) {
       return { ...FULL_PRIVACY_SETTINGS };
     }
 
     // If privacy controls are disabled for this camera, allow everything
-    if (!this.config.enabled) {
+    if (!this.config?.enabled) {
       return { ...DEFAULT_PRIVACY_SETTINGS };
     }
 
-    // Check schedule
-    const scheduleSettings = this.plugin.scheduleManager.getEffectiveSettings(
-      this.id,
-      this.config.manualSettings
-    );
+    // Check schedule (if manager is initialized)
+    let scheduleSettings = this.config.manualSettings;
+    if (this.plugin?.scheduleManager) {
+      scheduleSettings = this.plugin.scheduleManager.getEffectiveSettings(
+        this.id,
+        this.config.manualSettings
+      );
+    }
 
     // Check active profiles
-    const activeProfile = this.plugin.getActiveProfileForCamera(this.id);
+    const activeProfile = this.plugin?.getActiveProfileForCamera?.(this.id);
     if (activeProfile) {
       return { ...activeProfile.settings };
     }
