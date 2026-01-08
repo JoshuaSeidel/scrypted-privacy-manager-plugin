@@ -313,8 +313,8 @@ export class PrivacyManagerPlugin
   async getSettings(): Promise<Setting[]> {
     // Count cameras with VideoCamera interface
     const cameraCount = this.privacyMixins.size;
-    const activeProfiles = this.pluginSettings.profiles.filter(p => p.active);
-    const scheduleStatus = this.scheduleManager.getStatus();
+    const activeProfiles = this.pluginSettings.profiles?.filter(p => p.active) ?? [];
+    const scheduleStatus = this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 };
 
     const settings: Setting[] = [
       // Status
@@ -490,23 +490,27 @@ export class PrivacyManagerPlugin
         break;
 
       case 'webhookTest':
-        const result = await this.webhookManager.test();
-        this.console.log(`[Webhook Test] ${result.message}`);
+        if (this.webhookManager) {
+          const result = await this.webhookManager.test();
+          this.console.log(`[Webhook Test] ${result.message}`);
+        }
         break;
 
       case 'auditLogRetention':
         const days = parseInt(value as string, 10) || 30;
         this.pluginSettings.auditLogRetentionDays = days;
-        this.auditLogger.setRetentionDays(days);
+        this.auditLogger?.setRetentionDays(days);
         break;
 
       case 'viewAuditLog':
-        const logs = await this.auditLogger.exportLogs();
-        this.console.log('=== AUDIT LOG ===\n' + logs);
+        if (this.auditLogger) {
+          const logs = await this.auditLogger.exportLogs();
+          this.console.log('=== AUDIT LOG ===\n' + logs);
+        }
         break;
 
       case 'clearAuditLog':
-        await this.auditLogger.clearLogs();
+        await this.auditLogger?.clearLogs();
         break;
     }
 
@@ -522,14 +526,14 @@ export class PrivacyManagerPlugin
     try {
       if (path === '/status') {
         const status = {
-          panicMode: this.pluginSettings.panicMode,
-          profiles: this.pluginSettings.profiles.map(p => ({
+          panicMode: this.pluginSettings?.panicMode ?? false,
+          profiles: (this.pluginSettings?.profiles ?? []).map(p => ({
             id: p.id,
             name: p.name,
             active: p.active,
             cameraCount: p.cameraIds.length,
           })),
-          schedules: this.scheduleManager.getStatus(),
+          schedules: this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 },
         };
 
         response.send(JSON.stringify(status, null, 2), {
@@ -539,7 +543,7 @@ export class PrivacyManagerPlugin
       }
 
       if (path === '/audit') {
-        const logs = await this.auditLogger.exportLogsJson();
+        const logs = this.auditLogger ? await this.auditLogger.exportLogsJson() : '[]';
         response.send(logs, {
           headers: { 'Content-Type': 'application/json' },
         });
@@ -596,13 +600,13 @@ export class PrivacyManagerPlugin
     }
 
     // Log and notify
-    await this.auditLogger.logPanicMode(
+    await this.auditLogger?.logPanicMode(
       enabled,
       null,
       enabled ? FULL_PRIVACY_SETTINGS : DEFAULT_PRIVACY_SETTINGS
     );
 
-    await this.webhookManager.notifyPanicMode(enabled, 'manual');
+    await this.webhookManager?.notifyPanicMode(enabled, 'manual');
 
     this.console.log(`[Privacy Manager] Panic mode ${enabled ? 'ACTIVATED' : 'deactivated'}`);
   }
@@ -655,7 +659,7 @@ export class PrivacyManagerPlugin
     newSettings: PrivacySettings
   ): void {
     // Notify via webhook
-    this.webhookManager.notifyPrivacyChange(
+    this.webhookManager?.notifyPrivacyChange(
       cameraName,
       cameraId,
       newSettings,
@@ -680,7 +684,7 @@ export class PrivacyManagerPlugin
     mixin.updateEffectiveSettings();
 
     // Log the change
-    this.auditLogger.logScheduleChange(
+    this.auditLogger?.logScheduleChange(
       cameraId,
       cameraName,
       null,
@@ -688,7 +692,7 @@ export class PrivacyManagerPlugin
     );
 
     // Notify via webhook
-    this.webhookManager.notifyScheduleTriggered(
+    this.webhookManager?.notifyScheduleTriggered(
       cameraName,
       cameraId,
       settings,
@@ -710,10 +714,12 @@ export class PrivacyManagerPlugin
 
     Object.assign(this.pluginSettings.webhook, updates);
 
-    if (this.pluginSettings.webhook.url) {
-      this.webhookManager.setConfig(this.pluginSettings.webhook);
-    } else {
-      this.webhookManager.setConfig(null);
+    if (this.webhookManager) {
+      if (this.pluginSettings.webhook.url) {
+        this.webhookManager.setConfig(this.pluginSettings.webhook);
+      } else {
+        this.webhookManager.setConfig(null);
+      }
     }
 
     this.savePluginSettings();

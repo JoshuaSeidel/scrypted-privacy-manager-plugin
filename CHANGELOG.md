@@ -1,6 +1,11 @@
 <details>
 <summary>Changelog</summary>
 
+### 0.0.4-beta
+
+fix: remove nativeId parameter from plugin constructor
+
+
 ### 0.0.3-beta
 
 fix: use MixinDeviceBase instead of SettingsMixinDeviceBase
