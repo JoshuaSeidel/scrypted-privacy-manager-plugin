@@ -71,8 +71,8 @@ export class PrivacyManagerPlugin
   private profileDevices: Map<string, PrivacyProfileDevice> = new Map();
   private panicModeDevice: PanicModeDevice | null = null;
 
-  constructor(nativeId?: ScryptedNativeId) {
-    super(nativeId);
+  constructor() {
+    super();
 
     // Initialize with defaults first
     this.pluginSettings = { ...DEFAULT_PLUGIN_SETTINGS };

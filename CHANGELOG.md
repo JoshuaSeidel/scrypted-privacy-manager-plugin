@@ -1,6 +1,11 @@
 <details>
 <summary>Changelog</summary>
 
+### 0.0.3-beta
+
+fix: use MixinDeviceBase instead of SettingsMixinDeviceBase
+
+
 ### 0.0.2-beta
 
 fix: add defensive null checks to prevent initialization errors
