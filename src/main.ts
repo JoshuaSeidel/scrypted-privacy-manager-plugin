@@ -224,6 +224,12 @@ export class PrivacyManagerPlugin
       providedInterfaces.push(ScryptedInterface.VideoRecorder);
     }
 
+    // If the device supports VideoRecorderManagement, intercept that too
+    // This allows us to block setRecordingActive(true) calls when recording is blocked
+    if (interfaces.includes(ScryptedInterface.VideoRecorderManagement)) {
+      providedInterfaces.push(ScryptedInterface.VideoRecorderManagement);
+    }
+
     return providedInterfaces;
   }
 

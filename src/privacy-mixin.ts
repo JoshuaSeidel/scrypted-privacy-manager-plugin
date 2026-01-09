@@ -1,5 +1,6 @@
 import sdk, {
   Camera,
+  DeleteRecordingStreamOptions,
   MediaObject,
   MixinDeviceBase,
   MixinDeviceOptions,
@@ -15,6 +16,7 @@ import sdk, {
   SettingValue,
   VideoCamera,
   VideoRecorder,
+  VideoRecorderManagement,
 } from '@scrypted/sdk';
 import {
   CameraPrivacyConfig,
@@ -34,7 +36,7 @@ const { deviceManager } = sdk;
 /**
  * Combined type for camera devices we support
  */
-type SupportedDevice = VideoCamera & Camera & Settings & Partial<VideoRecorder>;
+type SupportedDevice = VideoCamera & Camera & Settings & Partial<VideoRecorder> & Partial<VideoRecorderManagement>;
 
 /**
  * Privacy Mixin - wraps a camera device to add privacy controls
@@ -288,8 +290,12 @@ export class PrivacyMixin
       if (this.effectiveSettings.blockRecording) {
         // Force recordingActive to false when recording is blocked
         // This should hide the red recording indicator
-        (this as any).recordingActive = false;
+        this.recordingActive = false;
         this.console.log(`[Privacy] Set recordingActive=false for ${this.name} (recording blocked)`);
+
+        // Also emit a device event to notify the system of the state change
+        // This helps ensure the UI updates even if it's watching for events
+        this.onDeviceEvent(ScryptedInterface.VideoRecorder, { recordingActive: false });
       }
       // When recording is allowed, we don't set it to true - let the NVR control it
     } catch (e) {
@@ -348,6 +354,34 @@ export class PrivacyMixin
     }
 
     return this.mixinDevice.getRecordingStreamThumbnail(time, options);
+  }
+
+  // ============ VideoRecorderManagement Interface ============
+  // This interface controls whether recording is active. By intercepting it,
+  // we can prevent recording from being enabled when privacy mode blocks it.
+
+  async setRecordingActive(recordingActive: boolean): Promise<void> {
+    // If recording is blocked and someone is trying to enable it, block the request
+    if (this.effectiveSettings.blockRecording && recordingActive) {
+      this.console.log(`[Privacy] BLOCKED setRecordingActive(true) for ${this.name} - recording is blocked by privacy policy`);
+      // Set our state to false
+      this.recordingActive = false;
+      return;
+    }
+
+    // Pass through to underlying device if it supports it
+    if (this.mixinDevice.setRecordingActive) {
+      this.console.log(`[Privacy] Passing setRecordingActive(${recordingActive}) to ${this.name}`);
+      return this.mixinDevice.setRecordingActive(recordingActive);
+    }
+  }
+
+  async deleteRecordingStream(options: DeleteRecordingStreamOptions): Promise<void> {
+    // Allow deletion regardless of privacy settings
+    if (this.mixinDevice.deleteRecordingStream) {
+      return this.mixinDevice.deleteRecordingStream(options);
+    }
+    throw new Error('Device does not support recording stream deletion');
   }
 
   // ============ Settings Interface ============
