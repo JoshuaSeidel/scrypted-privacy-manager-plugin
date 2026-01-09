@@ -62,9 +62,16 @@ export class PrivacyManagerPlugin
   public scheduleManager!: ScheduleManager;
   public webhookManager!: WebhookManager;
 
-  // Storage
+  // Plugin storage
   private pluginSettings: PluginSettings = { ...DEFAULT_PLUGIN_SETTINGS };
   private initialized = false;
+
+  /**
+   * Get the plugin's storage for shared access by mixins
+   */
+  getPluginStorage(): Storage {
+    return this.storage;
+  }
 
   // Device tracking
   private privacyMixins: Map<string, PrivacyMixin> = new Map();

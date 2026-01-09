@@ -54,6 +54,10 @@ export class PrivacyMixin
     // Load config from storage
     this.config = this.loadConfig();
 
+    // Always save config on init to ensure it exists in shared storage
+    // This is needed for camera/schedule counting
+    this.saveConfig();
+
     // Calculate initial effective settings
     this.effectiveSettings = this.calculateEffectiveSettings();
 
@@ -71,11 +75,20 @@ export class PrivacyMixin
   }
 
   /**
-   * Load configuration from storage
+   * Get the shared plugin storage (not mixin storage)
+   */
+  private getSharedStorage(): Storage | undefined {
+    return this.plugin?.getPluginStorage?.() ?? this.storage;
+  }
+
+  /**
+   * Load configuration from plugin's storage (not mixin storage)
+   * This ensures configs persist and are accessible from the main plugin
    */
   private loadConfig(): CameraPrivacyConfig {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    const stored = this.storage?.getItem(key);
+    const storage = this.getSharedStorage();
+    const stored = storage?.getItem(key);
 
     const defaultConfig: CameraPrivacyConfig = {
       enabled: true,
@@ -88,11 +101,14 @@ export class PrivacyMixin
   }
 
   /**
-   * Save configuration to storage
+   * Save configuration to plugin's storage (not mixin storage)
+   * This ensures configs persist and are accessible from the main plugin
    */
   private saveConfig(): void {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    this.storage?.setItem(key, JSON.stringify(this.config));
+    const storage = this.getSharedStorage();
+    storage?.setItem(key, JSON.stringify(this.config));
+    this.console.log(`[Privacy] Saved config for ${this.name} to key: ${key}`);
   }
 
   /**
