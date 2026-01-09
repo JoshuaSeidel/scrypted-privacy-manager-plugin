@@ -227,15 +227,28 @@ export class PrivacyMixin
   // ============ VideoCamera Interface ============
 
   async getVideoStream(options?: RequestMediaStreamOptions): Promise<MediaObject> {
+    // Log stream requests for debugging
+    this.console.log(`[Privacy] getVideoStream called for ${this.name}, destination: ${options?.destination}, blockRecording: ${this.effectiveSettings.blockRecording}, blockStreaming: ${this.effectiveSettings.blockStreaming}`);
+
     // Check streaming block
     if (this.effectiveSettings.blockStreaming) {
+      this.console.log(`[Privacy] BLOCKED streaming for ${this.name}`);
       throw new Error('Streaming is blocked by privacy policy');
     }
 
-    // Check recording block - modify destination if needed
+    // Check recording block - block any recording-related destination
     if (this.effectiveSettings.blockRecording && options?.destination) {
-      const blockedDestinations = ['local-recorder', 'remote-recorder'];
-      if (blockedDestinations.includes(options.destination as string)) {
+      const destination = String(options.destination).toLowerCase();
+      // Block any destination that looks like recording
+      const isRecordingDestination =
+        destination.includes('record') ||
+        destination.includes('local') ||
+        destination.includes('remote') ||
+        destination === 'local-recorder' ||
+        destination === 'remote-recorder';
+
+      if (isRecordingDestination) {
+        this.console.log(`[Privacy] BLOCKED recording for ${this.name} (destination: ${options.destination})`);
         throw new Error('Recording is blocked by privacy policy');
       }
     }
