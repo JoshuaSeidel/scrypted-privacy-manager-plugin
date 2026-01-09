@@ -1,6 +1,6 @@
 {
   "name": "@blueharford/scrypted-privacy-manager",
-  "version": "0.0.25-beta",
+  "version": "0.0.26-beta",
   "description": "Scrypted plugin for granular camera privacy controls with scheduling, profiles, and Home Assistant integration",
   "author": "blueharford",
   "license": "Apache-2.0",

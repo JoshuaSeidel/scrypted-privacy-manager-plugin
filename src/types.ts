@@ -68,15 +68,13 @@ export interface PrivacySchedule {
 
 /**
  * Default schedule - disabled
- * Default times are set for typical "home at night" scenario:
- * - Privacy ON at 22:00 (10 PM) - block recording when home
- * - Privacy OFF at 08:00 (8 AM) - allow recording when away
+ * Privacy ON at startTime, Privacy OFF at endTime
  */
 export const DEFAULT_SCHEDULE: PrivacySchedule = {
   enabled: false,
   type: 'daily',
-  startTime: '22:00',
-  endTime: '08:00',
+  startTime: '08:00',
+  endTime: '22:00',
   days: [0, 1, 2, 3, 4, 5, 6],
   settings: FULL_PRIVACY_SETTINGS,
 };
