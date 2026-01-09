@@ -3,8 +3,10 @@ import sdk, {
   MediaObject,
   MixinDeviceBase,
   MixinDeviceOptions,
+  RecordingStreamThumbnailOptions,
   RequestMediaStreamOptions,
   RequestPictureOptions,
+  RequestRecordingStreamOptions,
   ResponseMediaStreamOptions,
   ResponsePictureOptions,
   ScryptedInterface,
@@ -12,6 +14,7 @@ import sdk, {
   Settings,
   SettingValue,
   VideoCamera,
+  VideoRecorder,
 } from '@scrypted/sdk';
 import {
   CameraPrivacyConfig,
@@ -31,10 +34,13 @@ const { deviceManager } = sdk;
 /**
  * Combined type for camera devices we support
  */
-type SupportedDevice = VideoCamera & Camera & Settings;
+type SupportedDevice = VideoCamera & Camera & Settings & Partial<VideoRecorder>;
 
 /**
  * Privacy Mixin - wraps a camera device to add privacy controls
+ *
+ * Note: We implement VideoRecorder to intercept recording requests and
+ * control the recordingActive indicator when privacy mode blocks recording.
  */
 export class PrivacyMixin
   extends MixinDeviceBase<SupportedDevice>
@@ -188,32 +194,14 @@ export class PrivacyMixin
         previous,
         this.effectiveSettings
       );
-    }
 
-    // Update recording indicator - hide red indicator when recording is blocked
-    this.updateRecordingIndicator();
-  }
-
-  /**
-   * Update the recording indicator based on privacy settings
-   * When recording is blocked, we set recordingActive = false to remove the red indicator
-   *
-   * Note: This may not work reliably because the NVR plugin typically controls
-   * the recordingActive state on the underlying device, and mixin state changes
-   * may not override the device's actual state in the UI.
-   */
-  private updateRecordingIndicator(): void {
-    try {
-      if (this.effectiveSettings.blockRecording) {
-        // Recording is blocked - try to hide the red recording indicator
-        this.recordingActive = false;
-        this.console.log(`[Privacy] Set recordingActive = false for ${this.name}`);
+      // When recording block state changes, update the recording indicator
+      if (previous.blockRecording !== this.effectiveSettings.blockRecording) {
+        this.console.log(
+          `[Privacy] Recording block changed for ${this.name}: ${this.effectiveSettings.blockRecording ? 'BLOCKED' : 'allowed'}`
+        );
+        this.updateRecordingIndicator();
       }
-      // Note: We don't set recordingActive = true here because that should be
-      // controlled by the actual recording system, not the privacy plugin
-    } catch (e) {
-      // recordingActive might not be available on all devices
-      this.console.log(`[Privacy] Could not update recording indicator for ${this.name}: ${e}`);
     }
   }
 
@@ -283,6 +271,83 @@ export class PrivacyMixin
     }
 
     return this.mixinDevice.getPictureOptions?.() || [];
+  }
+
+  // ============ VideoRecorder Interface ============
+  // These methods intercept recording requests when privacy mode blocks recording.
+  // Note: We don't implement VideoRecorder directly because MixinDeviceBase has
+  // recordingActive as a property, not an accessor. Instead, we manually update
+  // the property value when needed.
+
+  /**
+   * Update the recordingActive state based on privacy settings.
+   * Called when effective settings change to update the UI indicator.
+   */
+  private updateRecordingIndicator(): void {
+    try {
+      if (this.effectiveSettings.blockRecording) {
+        // Force recordingActive to false when recording is blocked
+        // This should hide the red recording indicator
+        (this as any).recordingActive = false;
+        this.console.log(`[Privacy] Set recordingActive=false for ${this.name} (recording blocked)`);
+      }
+      // When recording is allowed, we don't set it to true - let the NVR control it
+    } catch (e) {
+      this.console.log(`[Privacy] Could not update recordingActive for ${this.name}: ${e}`);
+    }
+  }
+
+  async getRecordingStream(
+    options: RequestRecordingStreamOptions,
+    recordingStream?: MediaObject
+  ): Promise<MediaObject> {
+    // Block recording stream access when recording is blocked
+    if (this.effectiveSettings.blockRecording) {
+      this.console.log(`[Privacy] BLOCKED getRecordingStream for ${this.name}`);
+      throw new Error('Recording playback is blocked by privacy policy');
+    }
+
+    if (!this.mixinDevice.getRecordingStream) {
+      throw new Error('Device does not support recording streams');
+    }
+
+    return this.mixinDevice.getRecordingStream(options, recordingStream);
+  }
+
+  async getRecordingStreamCurrentTime(recordingStream: MediaObject): Promise<number> {
+    if (this.effectiveSettings.blockRecording) {
+      throw new Error('Recording is blocked by privacy policy');
+    }
+
+    if (!this.mixinDevice.getRecordingStreamCurrentTime) {
+      throw new Error('Device does not support recording streams');
+    }
+
+    return this.mixinDevice.getRecordingStreamCurrentTime(recordingStream);
+  }
+
+  async getRecordingStreamOptions(): Promise<ResponseMediaStreamOptions[]> {
+    // If recording is blocked, return empty options to indicate no recording available
+    if (this.effectiveSettings.blockRecording) {
+      return [];
+    }
+
+    return this.mixinDevice.getRecordingStreamOptions?.() || [];
+  }
+
+  async getRecordingStreamThumbnail(
+    time: number,
+    options?: RecordingStreamThumbnailOptions
+  ): Promise<MediaObject> {
+    if (this.effectiveSettings.blockRecording) {
+      throw new Error('Recording thumbnails are blocked by privacy policy');
+    }
+
+    if (!this.mixinDevice.getRecordingStreamThumbnail) {
+      throw new Error('Device does not support recording thumbnails');
+    }
+
+    return this.mixinDevice.getRecordingStreamThumbnail(time, options);
   }
 
   // ============ Settings Interface ============

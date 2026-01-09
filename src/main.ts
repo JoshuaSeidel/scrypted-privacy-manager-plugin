@@ -211,12 +211,20 @@ export class PrivacyManagerPlugin
       return null;
     }
 
-    // Return interfaces we add
-    return [
+    // Build list of interfaces we provide
+    const providedInterfaces = [
       ScryptedInterface.Settings,
       ScryptedInterface.VideoCamera,
       ScryptedInterface.Online,
     ];
+
+    // If the device supports VideoRecorder, we also need to intercept that
+    // to properly control the recording indicator
+    if (interfaces.includes(ScryptedInterface.VideoRecorder)) {
+      providedInterfaces.push(ScryptedInterface.VideoRecorder);
+    }
+
+    return providedInterfaces;
   }
 
   async getMixin(
