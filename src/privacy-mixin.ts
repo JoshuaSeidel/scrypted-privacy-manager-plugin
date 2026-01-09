@@ -296,16 +296,16 @@ export class PrivacyMixin
     const activeProfile = this.plugin?.getActiveProfileForCamera?.(this.id);
     const isPanicMode = this.plugin?.isPanicModeActive?.() ?? false;
 
-    // Build status description
-    let statusDescription = '';
+    // Build status value for display
+    let statusValue = '';
     if (isPanicMode) {
-      statusDescription = 'PANIC MODE ACTIVE - All cameras are in full privacy mode';
+      statusValue = '🚨 PANIC MODE ACTIVE';
     } else if (activeProfile) {
-      statusDescription = `Profile "${activeProfile.name}" is active`;
+      statusValue = `📋 Profile "${activeProfile.name}" active`;
     } else if (scheduleInfo.isActive) {
-      statusDescription = `Schedule is active: ${scheduleInfo.description}`;
+      statusValue = `⏰ Schedule active: ${scheduleInfo.description}`;
     } else {
-      statusDescription = describeSettings(this.effectiveSettings);
+      statusValue = describeSettings(this.effectiveSettings);
     }
 
     const privacySettings: Setting[] = [
@@ -313,10 +313,10 @@ export class PrivacyMixin
       {
         key: 'privacy:status',
         title: 'Current Status',
-        description: statusDescription,
+        description: 'Current effective privacy state for this camera',
         type: 'string',
         readonly: true,
-        value: '',
+        value: statusValue,
         group: 'Privacy Controls',
       },
 
@@ -426,11 +426,11 @@ export class PrivacyMixin
     if (this.config.schedule.enabled && scheduleInfo.nextChange) {
       privacySettings.push({
         key: 'privacy:scheduleInfo',
-        title: 'Schedule Status',
-        description: `Next change: ${scheduleInfo.nextChange.toLocaleString()}`,
+        title: 'Next Change',
+        description: 'When the schedule will next toggle',
         type: 'string',
         readonly: true,
-        value: '',
+        value: scheduleInfo.nextChange.toLocaleString(),
         group: 'Privacy Schedule',
       });
     }

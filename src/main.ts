@@ -368,37 +368,39 @@ export class PrivacyManagerPlugin
 
     this.console.log(`[Privacy Manager] getSettings called, cameras with config: ${cameraCount}, schedules: ${activeSchedules}/${totalSchedules}`);
 
+    const statusValue = this.pluginSettings.panicMode
+      ? `🚨 PANIC MODE ACTIVE`
+      : activeProfiles.length > 0
+        ? `📋 Active profiles: ${activeProfiles.map(p => p.name).join(', ')}`
+        : `✅ Normal operation`;
+
     const settings: Setting[] = [
       // Status
       {
         key: 'status',
         title: 'Status',
-        description: this.pluginSettings.panicMode
-          ? `🚨 PANIC MODE ACTIVE`
-          : activeProfiles.length > 0
-            ? `📋 Active profiles: ${activeProfiles.map(p => p.name).join(', ')}`
-            : `✅ Normal operation`,
+        description: 'Current privacy manager status',
         type: 'string',
         readonly: true,
-        value: '',
+        value: statusValue,
         group: 'Status',
       },
       {
         key: 'cameraCount',
         title: 'Cameras',
-        description: `${cameraCount} camera(s) with privacy controls`,
+        description: 'Number of cameras with privacy controls configured',
         type: 'string',
         readonly: true,
-        value: '',
+        value: `${cameraCount} camera(s)`,
         group: 'Status',
       },
       {
         key: 'scheduleStatus',
         title: 'Schedules',
-        description: `${activeSchedules}/${totalSchedules} schedules active`,
+        description: 'Active schedules out of total configured',
         type: 'string',
         readonly: true,
-        value: '',
+        value: `${activeSchedules}/${totalSchedules} active`,
         group: 'Status',
       },
 
