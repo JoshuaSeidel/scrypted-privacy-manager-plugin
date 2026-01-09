@@ -51,12 +51,14 @@ export class PrivacyMixin
     super(options);
     this.plugin = plugin;
 
-    // Load config from storage
-    this.config = this.loadConfig();
+    // Load config from storage (with migration support)
+    const { config, migrated } = this.loadConfigWithMigration();
+    this.config = config;
 
-    // Always save config on init to ensure it exists in shared storage
-    // This is needed for camera/schedule counting
-    this.saveConfig();
+    // Only save if we migrated from old storage or this is first time setup
+    if (migrated) {
+      this.saveConfig();
+    }
 
     // Calculate initial effective settings
     this.effectiveSettings = this.calculateEffectiveSettings();
@@ -77,18 +79,17 @@ export class PrivacyMixin
   /**
    * Get the shared plugin storage (not mixin storage)
    */
-  private getSharedStorage(): Storage | undefined {
-    return this.plugin?.getPluginStorage?.() ?? this.storage;
+  private getPluginStorage(): Storage | undefined {
+    return this.plugin?.getPluginStorage?.();
   }
 
   /**
-   * Load configuration from plugin's storage (not mixin storage)
-   * This ensures configs persist and are accessible from the main plugin
+   * Load configuration - tries plugin storage first, then migrates from mixin storage if needed
+   * Returns both the config and whether migration occurred
    */
-  private loadConfig(): CameraPrivacyConfig {
+  private loadConfigWithMigration(): { config: CameraPrivacyConfig; migrated: boolean } {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    const storage = this.getSharedStorage();
-    const stored = storage?.getItem(key);
+    const pluginStorage = this.getPluginStorage();
 
     const defaultConfig: CameraPrivacyConfig = {
       enabled: true,
@@ -97,7 +98,23 @@ export class PrivacyMixin
       profileIds: [],
     };
 
-    return safeJsonParse(stored, defaultConfig);
+    // Try plugin storage first (new location)
+    const pluginStored = pluginStorage?.getItem(key);
+    if (pluginStored) {
+      this.console.log(`[Privacy] Loaded config from plugin storage for ${this.name}`);
+      return { config: safeJsonParse(pluginStored, defaultConfig), migrated: false };
+    }
+
+    // Try mixin storage (old location) for migration
+    const mixinStored = this.storage?.getItem(key);
+    if (mixinStored) {
+      this.console.log(`[Privacy] Migrating config from mixin storage for ${this.name}`);
+      const config = safeJsonParse(mixinStored, defaultConfig);
+      return { config, migrated: true };
+    }
+
+    this.console.log(`[Privacy] Using default config for ${this.name} (no existing config found)`);
+    return { config: defaultConfig, migrated: false };
   }
 
   /**
@@ -106,9 +123,15 @@ export class PrivacyMixin
    */
   private saveConfig(): void {
     const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${this.id}`;
-    const storage = this.getSharedStorage();
-    storage?.setItem(key, JSON.stringify(this.config));
-    this.console.log(`[Privacy] Saved config for ${this.name} to key: ${key}`);
+    const storage = this.getPluginStorage();
+    if (storage) {
+      storage.setItem(key, JSON.stringify(this.config));
+      this.console.log(`[Privacy] Saved config to plugin storage for ${this.name}`);
+    } else {
+      // Fallback to mixin storage if plugin storage unavailable
+      this.storage?.setItem(key, JSON.stringify(this.config));
+      this.console.log(`[Privacy] Saved config to mixin storage for ${this.name} (fallback)`);
+    }
   }
 
   /**
