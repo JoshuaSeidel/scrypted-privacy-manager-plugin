@@ -80,8 +80,9 @@ export class PrivacyMixin
       this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
     }
 
-    // Update recording indicator based on initial settings
-    this.updateRecordingIndicator();
+    // Update NVR recording state based on initial settings
+    // Use setImmediate to allow constructor to complete first
+    setImmediate(() => this.updateRecordingIndicator());
   }
 
   /**
@@ -282,24 +283,26 @@ export class PrivacyMixin
   // the property value when needed.
 
   /**
-   * Update the recordingActive state based on privacy settings.
-   * Called when effective settings change to update the UI indicator.
+   * Update the NVR recording state based on privacy settings.
+   * Uses the 'recording:privacyMode' setting to enable/disable Scrypted NVR recording.
    */
-  private updateRecordingIndicator(): void {
+  private async updateRecordingIndicator(): Promise<void> {
     try {
       if (this.effectiveSettings.blockRecording) {
-        // Force recordingActive to false when recording is blocked
-        // This should hide the red recording indicator
-        this.recordingActive = false;
-        this.console.log(`[Privacy] Set recordingActive=false for ${this.name} (recording blocked)`);
+        // Enable NVR privacy mode to stop recording
+        // This is the "Disable Scrypted NVR" setting in the camera's privacy options
+        this.console.log(`[Privacy] Enabling NVR privacy mode for ${this.name} (recording blocked)`);
+        await this.mixinDevice.putSetting('recording:privacyMode', true);
 
-        // Also emit a device event to notify the system of the state change
-        // This helps ensure the UI updates even if it's watching for events
-        this.onDeviceEvent(ScryptedInterface.VideoRecorder, { recordingActive: false });
+        // Also set our local recordingActive to false
+        this.recordingActive = false;
+      } else {
+        // Disable NVR privacy mode to allow recording
+        this.console.log(`[Privacy] Disabling NVR privacy mode for ${this.name} (recording allowed)`);
+        await this.mixinDevice.putSetting('recording:privacyMode', false);
       }
-      // When recording is allowed, we don't set it to true - let the NVR control it
     } catch (e) {
-      this.console.log(`[Privacy] Could not update recordingActive for ${this.name}: ${e}`);
+      this.console.log(`[Privacy] Could not update NVR privacy mode for ${this.name}: ${e}`);
     }
   }
 
