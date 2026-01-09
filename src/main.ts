@@ -65,6 +65,7 @@ export class PrivacyManagerPlugin
   // Plugin storage
   private pluginSettings: PluginSettings = { ...DEFAULT_PLUGIN_SETTINGS };
   private initialized = false;
+  private pendingProfileName: string = '';
 
   /**
    * Get the plugin's storage for shared access by mixins
@@ -414,6 +415,35 @@ export class PrivacyManagerPlugin
         group: 'Global Controls',
       },
 
+      // Profiles section
+      {
+        key: 'profileList',
+        title: 'Existing Profiles',
+        description: 'Profiles appear as switches in your device list',
+        type: 'string',
+        readonly: true,
+        value: this.pluginSettings.profiles?.length
+          ? this.pluginSettings.profiles.map(p => `${p.name}${p.active ? ' (active)' : ''}`).join(', ')
+          : 'No profiles created yet',
+        group: 'Profiles',
+      },
+      {
+        key: 'newProfileName',
+        title: 'New Profile Name',
+        description: 'Enter a name and click Create to add a new privacy profile',
+        type: 'string',
+        placeholder: 'e.g., Night Mode, Away Mode',
+        value: this.pendingProfileName,
+        group: 'Profiles',
+      },
+      {
+        key: 'createProfile',
+        title: 'Create Profile',
+        description: 'Create a new privacy profile with the name above',
+        type: 'button',
+        group: 'Profiles',
+      },
+
       // Default Settings
       {
         key: 'defaultBlockRecording',
@@ -565,6 +595,20 @@ export class PrivacyManagerPlugin
 
       case 'clearAuditLog':
         await this.auditLogger?.clearLogs();
+        break;
+
+      case 'newProfileName':
+        this.pendingProfileName = String(value || '');
+        break;
+
+      case 'createProfile':
+        if (this.pendingProfileName) {
+          await this.createDevice({ profileName: this.pendingProfileName });
+          this.pendingProfileName = '';
+          this.console.log(`[Privacy Manager] Profile created via settings button`);
+        } else {
+          this.console.log(`[Privacy Manager] Cannot create profile: no name provided`);
+        }
         break;
     }
 
