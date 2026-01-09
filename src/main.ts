@@ -313,12 +313,27 @@ export class PrivacyManagerPlugin
   // ============ Settings Interface ============
 
   async getSettings(): Promise<Setting[]> {
-    // Count cameras with VideoCamera interface
-    const cameraCount = this.privacyMixins.size;
+    // Count cameras that have privacy controls enabled by checking storage
+    // We can't rely on privacyMixins.size because mixins are created/destroyed dynamically
+    let cameraCount = 0;
+    try {
+      // Get all devices and count those with our config prefix in storage
+      const devices = Object.keys(systemManager.getSystemState());
+      for (const deviceId of devices) {
+        const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${deviceId}`;
+        const config = this.storage.getItem(key);
+        if (config) {
+          cameraCount++;
+        }
+      }
+    } catch (e) {
+      // Fallback to mixin count if storage check fails
+      cameraCount = this.privacyMixins.size;
+    }
     const activeProfiles = this.pluginSettings.profiles?.filter(p => p.active) ?? [];
     const scheduleStatus = this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 };
 
-    this.console.log(`[Privacy Manager] getSettings called, privacyMixins.size: ${cameraCount}`);
+    this.console.log(`[Privacy Manager] getSettings called, cameras with config: ${cameraCount}`);
 
     const settings: Setting[] = [
       // Status
