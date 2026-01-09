@@ -82,6 +82,7 @@ export class ScheduleManager {
    * Register or update a camera's schedule
    */
   setSchedule(cameraId: string, schedule: PrivacySchedule): void {
+    const wasActive = this.schedules.get(cameraId)?.currentlyActive ?? false;
     const isActive = schedule.enabled && isWithinSchedule(schedule);
 
     this.schedules.set(cameraId, {
@@ -98,6 +99,19 @@ export class ScheduleManager {
         `${describeSchedule(schedule)}, currently ${isActive ? 'ACTIVE' : 'inactive'}` +
         (nextChange ? `, next change at ${nextChange.toLocaleString()}` : '')
       );
+
+      // If schedule is newly enabled and we're already within the active window,
+      // trigger an immediate callback to apply the settings
+      if (isActive && !wasActive) {
+        this.console.log(`[Schedule] Camera ${cameraId} schedule immediately ACTIVATED (within active window)`);
+        for (const callback of this.callbacks) {
+          try {
+            callback(cameraId, schedule.settings, 'schedule_start');
+          } catch (error) {
+            this.console.error('[Schedule] Callback error:', error);
+          }
+        }
+      }
     }
   }
 
