@@ -307,11 +307,10 @@ export class PrivacyMixin
     options: RequestRecordingStreamOptions,
     recordingStream?: MediaObject
   ): Promise<MediaObject> {
-    // Block recording stream access when recording is blocked
-    if (this.effectiveSettings.blockRecording) {
-      this.console.log(`[Privacy] BLOCKED getRecordingStream for ${this.name}`);
-      throw new Error('Recording playback is blocked by privacy policy');
-    }
+    // Allow playback of existing recordings even when recording is blocked
+    // We only want to prevent NEW recordings, not access to existing ones
+    // The user should still be able to review footage from before privacy mode was enabled
+    this.console.log(`[Privacy] getRecordingStream for ${this.name}, startTime: ${options?.startTime}`);
 
     if (!this.mixinDevice.getRecordingStream) {
       throw new Error('Device does not support recording streams');
@@ -321,10 +320,7 @@ export class PrivacyMixin
   }
 
   async getRecordingStreamCurrentTime(recordingStream: MediaObject): Promise<number> {
-    if (this.effectiveSettings.blockRecording) {
-      throw new Error('Recording is blocked by privacy policy');
-    }
-
+    // Allow getting current time for playback
     if (!this.mixinDevice.getRecordingStreamCurrentTime) {
       throw new Error('Device does not support recording streams');
     }
@@ -333,11 +329,7 @@ export class PrivacyMixin
   }
 
   async getRecordingStreamOptions(): Promise<ResponseMediaStreamOptions[]> {
-    // If recording is blocked, return empty options to indicate no recording available
-    if (this.effectiveSettings.blockRecording) {
-      return [];
-    }
-
+    // Allow access to recording stream options for playback
     return this.mixinDevice.getRecordingStreamOptions?.() || [];
   }
 
@@ -345,10 +337,7 @@ export class PrivacyMixin
     time: number,
     options?: RecordingStreamThumbnailOptions
   ): Promise<MediaObject> {
-    if (this.effectiveSettings.blockRecording) {
-      throw new Error('Recording thumbnails are blocked by privacy policy');
-    }
-
+    // Allow access to thumbnails from existing recordings
     if (!this.mixinDevice.getRecordingStreamThumbnail) {
       throw new Error('Device does not support recording thumbnails');
     }
