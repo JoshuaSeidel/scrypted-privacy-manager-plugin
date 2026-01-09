@@ -65,6 +65,9 @@ export class PrivacyMixin
     if (this.config.schedule.enabled && this.plugin?.scheduleManager) {
       this.plugin.scheduleManager.setSchedule(this.id, this.config.schedule);
     }
+
+    // Update recording indicator based on initial settings
+    this.updateRecordingIndicator();
   }
 
   /**
@@ -146,6 +149,27 @@ export class PrivacyMixin
         previous,
         this.effectiveSettings
       );
+    }
+
+    // Update recording indicator - hide red indicator when recording is blocked
+    this.updateRecordingIndicator();
+  }
+
+  /**
+   * Update the recording indicator based on privacy settings
+   * When recording is blocked, we set recordingActive = false to remove the red indicator
+   */
+  private updateRecordingIndicator(): void {
+    try {
+      if (this.effectiveSettings.blockRecording) {
+        // Recording is blocked - hide the red recording indicator
+        this.recordingActive = false;
+      }
+      // Note: We don't set recordingActive = true here because that should be
+      // controlled by the actual recording system, not the privacy plugin
+    } catch (e) {
+      // recordingActive might not be available on all devices
+      this.console.debug?.(`[Privacy] Could not update recording indicator: ${e}`);
     }
   }
 
