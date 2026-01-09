@@ -226,6 +226,8 @@ export class PrivacyManagerPlugin
     const mixin = new PrivacyMixin(options, this);
     this.privacyMixins.set(mixinDeviceState.id, mixin);
 
+    this.console.log(`[Privacy Manager] getMixin called for ${mixinDeviceState.id}, total mixins: ${this.privacyMixins.size}`);
+
     return mixin;
   }
 
@@ -315,6 +317,8 @@ export class PrivacyManagerPlugin
     const cameraCount = this.privacyMixins.size;
     const activeProfiles = this.pluginSettings.profiles?.filter(p => p.active) ?? [];
     const scheduleStatus = this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 };
+
+    this.console.log(`[Privacy Manager] getSettings called, privacyMixins.size: ${cameraCount}`);
 
     const settings: Setting[] = [
       // Status
