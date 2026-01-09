@@ -227,22 +227,10 @@ export class PrivacyMixin
       throw new Error('Streaming is blocked by privacy policy');
     }
 
-    // Check recording block - block any recording-related destination
-    if (this.effectiveSettings.blockRecording && options?.destination) {
-      const destination = String(options.destination).toLowerCase();
-      // Block any destination that looks like recording
-      const isRecordingDestination =
-        destination.includes('record') ||
-        destination.includes('local') ||
-        destination.includes('remote') ||
-        destination === 'local-recorder' ||
-        destination === 'remote-recorder';
-
-      if (isRecordingDestination) {
-        this.console.log(`[Privacy] BLOCKED recording for ${this.name} (destination: ${options.destination})`);
-        throw new Error('Recording is blocked by privacy policy');
-      }
-    }
+    // Note: We no longer block recording via getVideoStream destination filtering.
+    // Recording is now controlled via the 'recording:privacyMode' setting which
+    // directly tells Scrypted NVR to stop recording. This is more reliable and
+    // doesn't interfere with live streaming which may use similar destination names.
 
     // Pass through to underlying device
     return this.mixinDevice.getVideoStream(options);
