@@ -158,18 +158,23 @@ export class PrivacyMixin
   /**
    * Update the recording indicator based on privacy settings
    * When recording is blocked, we set recordingActive = false to remove the red indicator
+   *
+   * Note: This may not work reliably because the NVR plugin typically controls
+   * the recordingActive state on the underlying device, and mixin state changes
+   * may not override the device's actual state in the UI.
    */
   private updateRecordingIndicator(): void {
     try {
       if (this.effectiveSettings.blockRecording) {
-        // Recording is blocked - hide the red recording indicator
+        // Recording is blocked - try to hide the red recording indicator
         this.recordingActive = false;
+        this.console.log(`[Privacy] Set recordingActive = false for ${this.name}`);
       }
       // Note: We don't set recordingActive = true here because that should be
       // controlled by the actual recording system, not the privacy plugin
     } catch (e) {
       // recordingActive might not be available on all devices
-      this.console.debug?.(`[Privacy] Could not update recording indicator: ${e}`);
+      this.console.log(`[Privacy] Could not update recording indicator for ${this.name}: ${e}`);
     }
   }
 

@@ -136,24 +136,29 @@ export class ScheduleManager {
 
   /**
    * Get the effective privacy settings for a camera based on schedule
+   *
+   * When schedule is active, it applies the scheduleActiveSettings (typically the manual settings).
+   * When schedule is inactive, it returns the default settings (typically all allowed).
+   *
+   * The schedule determines WHEN privacy is applied, not WHAT privacy settings.
    */
   getEffectiveSettings(
     cameraId: string,
-    baseSettings: PrivacySettings
+    scheduleActiveSettings: PrivacySettings
   ): PrivacySettings {
     const entry = this.schedules.get(cameraId);
 
     if (!entry || !entry.schedule.enabled) {
-      return baseSettings;
+      return scheduleActiveSettings;
     }
 
     if (isWithinSchedule(entry.schedule)) {
-      // Schedule is active, apply schedule's settings
-      return entry.schedule.settings;
+      // Schedule is active - apply the camera's configured privacy settings
+      return scheduleActiveSettings;
     }
 
-    // Schedule is not active, use base settings
-    return baseSettings;
+    // Schedule is not active - return default (no privacy / all allowed)
+    return DEFAULT_PRIVACY_SETTINGS;
   }
 
   /**

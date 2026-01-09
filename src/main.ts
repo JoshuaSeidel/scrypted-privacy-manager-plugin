@@ -331,9 +331,35 @@ export class PrivacyManagerPlugin
       cameraCount = this.privacyMixins.size;
     }
     const activeProfiles = this.pluginSettings.profiles?.filter(p => p.active) ?? [];
-    const scheduleStatus = this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 };
 
-    this.console.log(`[Privacy Manager] getSettings called, cameras with config: ${cameraCount}`);
+    // Count schedules from storage since schedule manager only tracks active mixins
+    let totalSchedules = 0;
+    let activeSchedules = 0;
+    try {
+      const devices = Object.keys(systemManager.getSystemState());
+      for (const deviceId of devices) {
+        const key = `${STORAGE_KEYS.CAMERA_CONFIG_PREFIX}${deviceId}`;
+        const configStr = this.storage.getItem(key);
+        if (configStr) {
+          const config = safeJsonParse(configStr, null);
+          if (config?.schedule?.enabled) {
+            totalSchedules++;
+            // Check if schedule is currently active using the utility
+            const { isWithinSchedule } = require('./utils');
+            if (isWithinSchedule(config.schedule)) {
+              activeSchedules++;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback to schedule manager if storage check fails
+      const scheduleStatus = this.scheduleManager?.getStatus() ?? { activeSchedules: 0, totalSchedules: 0 };
+      totalSchedules = scheduleStatus.totalSchedules;
+      activeSchedules = scheduleStatus.activeSchedules;
+    }
+
+    this.console.log(`[Privacy Manager] getSettings called, cameras with config: ${cameraCount}, schedules: ${activeSchedules}/${totalSchedules}`);
 
     const settings: Setting[] = [
       // Status
@@ -362,7 +388,7 @@ export class PrivacyManagerPlugin
       {
         key: 'scheduleStatus',
         title: 'Schedules',
-        description: `${scheduleStatus.activeSchedules}/${scheduleStatus.totalSchedules} schedules active`,
+        description: `${activeSchedules}/${totalSchedules} schedules active`,
         type: 'string',
         readonly: true,
         value: '',
@@ -691,7 +717,7 @@ export class PrivacyManagerPlugin
    */
   private onScheduleTriggered(
     cameraId: string,
-    settings: PrivacySettings,
+    _settings: PrivacySettings,
     reason: 'schedule_start' | 'schedule_end'
   ): void {
     const mixin = this.privacyMixins.get(cameraId);
@@ -699,22 +725,25 @@ export class PrivacyManagerPlugin
 
     const cameraName = mixin.name;
 
-    // Update the mixin
+    // Update the mixin - this recalculates effective settings
     mixin.updateEffectiveSettings();
+
+    // Get the actual effective settings from the mixin
+    const effectiveSettings = mixin.getEffectiveSettings();
 
     // Log the change
     this.auditLogger?.logScheduleChange(
       cameraId,
       cameraName,
       null,
-      settings
+      effectiveSettings
     );
 
     // Notify via webhook
     this.webhookManager?.notifyScheduleTriggered(
       cameraName,
       cameraId,
-      settings,
+      effectiveSettings,
       reason === 'schedule_start' ? 'start' : 'end'
     );
   }
